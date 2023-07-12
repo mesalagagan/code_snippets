@@ -91,7 +91,73 @@ This guide provides step-by-step instructions for deploying a Ruby on Rails appl
 
 1. Update the `config/database.yml` file with the MySQL RDS details.
 
+```shell
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: localhost
+  username: <%= ENV['DATABASE_USERNAME'] %>
+  password: <%= ENV['DATABASE_PASSWORD'] %>
+
+development:
+  <<: *default
+  database: myapp_development
+
+test:
+  <<: *default
+  database: myapp_test
+
+staging:
+  <<: *default
+  database: myapp_staging
+
+production:
+  <<: *default
+  database: myapp_production
+
+```
+
 2. Update the `config/initializers/redis.rb` file with the Redis configuration.
+
+```shell
+
+if Rails.env.production?
+  uri = URI.parse(ENV['REDIS_URL'])
+  Redis.current = Redis.new(host: uri.host, port: uri.port, password: uri.password)
+else
+  Redis.current = Redis.new(host: 'localhost', port: 6379)
+end
+
+```
+
+3. Update the `config/initializers/sidekiq.rb` file with sidekiq configuration.
+
+```shell
+
+Sidekiq.configure_server do |config|
+  config.redis = { url: 'redis://localhost:6379/0' }
+end
+
+Sidekiq.configure_client do |config|
+  config.redis = { url: 'redis://localhost:6379/0' }
+end
+
+```
+
+4. Update the `config/sidekiq.yml:`
+
+```shell
+
+:concurrency: 5
+:pidfile: ./tmp/pids/sidekiq.pid
+:logfile: ./log/sidekiq.log
+:queues:
+  - default
+  - mailers
+
+```
 
 ### Step 11: Install application dependencies
 
@@ -118,15 +184,7 @@ This guide provides step-by-step instructions for deploying a Ruby on Rails appl
    bundle install --deployment --without development test
    ```
 
-### Step 12: Precompile assets
-
-1. Precompile assets:
-
-   ```shell
-   RAILS_ENV=production bundle exec rails assets:precompile
-   ```
-
-### Step 13: Set up Nginx configuration for Passenger
+### Step 12: Set up Nginx configuration for Passenger
 
 1. Edit the Nginx configuration file:
 
@@ -199,7 +257,7 @@ This guide provides step-by-step instructions for deploying a Ruby on Rails appl
 
 2. Replace the contents of the file with the provided Nginx configuration.
 
-### Step 14: Update Nginx configuration for your Rails application
+### Step 13: Update Nginx configuration for your Rails application
 
 1. Create a new Nginx site configuration:
 
@@ -248,24 +306,25 @@ This guide provides step-by-step instructions for deploying a Ruby on Rails appl
 
    ```
 
-### Step 15: Enable the Nginx site configuration
+### Step 14: Enable the Nginx site configuration
 
    ```shell
    sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/
    ```
 
-### Step 16: Restart Nginx
+### Step 15: Restart Nginx
 
    ```shell
    sudo systemctl restart nginx
    ```
 
-### Step 17: Start the Rails application
+### Step 16: Start the Rails application
 
    ```shell
    bundle exec rails db:migrate RAILS_ENV=staging # or production
    bundle exec rails db:seed RAILS_ENV=staging # or production
    RAILS_ENV=staging bundle exec passenger start --port 3000
+   RAILS_ENV=staging bundle exec sidekiq -C config/sidekiq.yml
    ```
 
 Replace `staging` with `
