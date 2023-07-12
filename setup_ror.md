@@ -264,9 +264,7 @@ This guide provides step-by-step instructions for deploying a Ruby on Rails appl
 
    ```shell
    bundle exec rails db:migrate RAILS_ENV=staging # or production
-   bundle exec rails assets:precompile RAILS_ENV=staging # or production
-   bundle exec rails assets:clobber
-   bundle exec rails tmp:create
+   bundle exec rails db:seed RAILS_ENV=staging # or production
    RAILS_ENV=staging bundle exec passenger start --port 3000
    ```
 
